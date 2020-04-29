@@ -262,7 +262,7 @@ def create_chart_dir(
     return True
 
 if __name__ == '__main__':
-    import argparse as argparse
+#     import argparse as argparse
     import cPickle as pickle
     import os
     import uuid
@@ -271,21 +271,21 @@ if __name__ == '__main__':
 
     from extract_feats import create_analyzers
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--norm_pkl_fp', type=str)
-    parser.add_argument('--sp_ckpt_fp', type=str)
-    parser.add_argument('--ss_ckpt_fp', type=str)
-    parser.add_argument('--labels_txt_fp', type=str)
-    parser.add_argument('--sp_batch_size', type=int)
-    parser.add_argument('--out_dir', type=str)
-    parser.add_argument('--port', type=int)
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--norm_pkl_fp', type=str)
+#     parser.add_argument('--sp_ckpt_fp', type=str)
+#     parser.add_argument('--ss_ckpt_fp', type=str)
+#     parser.add_argument('--labels_txt_fp', type=str)
+#     parser.add_argument('--sp_batch_size', type=int)
+#     parser.add_argument('--out_dir', type=str)
+#     parser.add_argument('--port', type=int)
 
-    parser.set_defaults(
-        sp_batch_size=256,
-        port=13337,
-    )
+#     parser.set_defaults(
+#         sp_batch_size=256,
+#         port=13337,
+#     )
 
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
     config = tf.ConfigProto()
     config.log_device_placement = True
@@ -293,36 +293,36 @@ if __name__ == '__main__':
     config.gpu_options.allow_growth = True
     #config.gpu_options.per_process_gpu_memory_fraction = 1.0
 
-    if not os.path.isdir(args.out_dir):
-      os.makedirs(args.out_dir)
+    if not os.path.isdir("results/"):
+      os.makedirs("results/")
 
     with tf.Graph().as_default(), tf.Session(config=config).as_default() as sess:
         print 'Loading band norms'
-        with open(args.norm_pkl_fp, 'rb') as f:
+        with open("data/norm.pkl", 'rb') as f:
             norm = pickle.load(f)
 
         print 'Creating Mel analyzers'
         analyzers = create_analyzers(nhop=441)
 
         print 'Loading labels'
-        with open(args.labels_txt_fp, 'r') as f:
+        with open("data/labels.txt", 'r') as f:
             idx_to_label = {i + 1:l for i, l in enumerate(f.read().splitlines())}
 
         print 'Loading step placement model'
-        sp_model = load_sp_model(args.sp_ckpt_fp, args.sp_batch_size)
+        sp_model = load_sp_model("data/model_sp", 128) # 128 is sp batch size
         print 'Loading step selection model'
-        ss_model = load_ss_model(args.ss_ckpt_fp)
+        ss_model = load_ss_model("data/model_ss")
 
         def create_chart_closure(artist, title, audio_fp, diffs):
             song_id = uuid.uuid4()
 
-            out_dir = os.path.join(args.out_dir, str(song_id))
+            out_dir = os.path.join("results/", str(song_id))
             try:
                 create_chart_dir(
                     artist, title,
                     audio_fp,
                     norm, analyzers,
-                    sp_model, args.sp_batch_size, diffs,
+                    sp_model, 128, diffs,
                     ss_model, idx_to_label,
                     out_dir)
             except CreateChartException as e:
@@ -330,7 +330,7 @@ if __name__ == '__main__':
             except Exception as e:
                 raise CreateChartException('Unknown chart creation exception')
 
-            out_zip_fp = os.path.join(args.out_dir, str(song_id) + '.zip')
+            out_zip_fp = os.path.join("results/", str(song_id) + '.zip')
             print out_zip_fp
             print 'Creating zip {}'.format(out_zip_fp)
             with zipfile.ZipFile(out_zip_fp, 'w', zipfile.ZIP_DEFLATED) as f:
@@ -339,7 +339,7 @@ if __name__ == '__main__':
 
             return os.path.abspath(out_zip_fp)
 
-        print 'Waiting for RPCs on port {}'.format(args.port)
-        server = SimpleXMLRPCServer(('localhost', args.port))
+        print 'Waiting for RPCs on port {}'.format(13337)
+        server = SimpleXMLRPCServer(('localhost', 13337))
         server.register_function(create_chart_closure, 'create_chart')
         server.serve_forever()
